@@ -138,7 +138,7 @@
   const ADMIN_EMAIL = 'mukunda.gogoi@gmail.com';
   // Paste the Web App URL from your Apps Script deployment here.
   // Looks like: https://script.google.com/macros/s/AKfycb.../exec
-  const SYNC_ENDPOINT_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+  const SYNC_ENDPOINT_URL = 'https://script.google.com/macros/s/AKfycbx672GyixI-sYl3asNqduddeV4QDiBJY_AeSdVxnvYEsAWOLiUC2ld7QAdTn0o1ikq0/exec';
   // ============================
 
   const root = document.getElementById('app');
@@ -261,7 +261,7 @@
       return;
     }
     try {
-      const url = https://script.google.com/macros/s/AKfycbx672GyixI-sYl3asNqduddeV4QDiBJY_AeSdVxnvYEsAWOLiUC2ld7QAdTn0o1ikq0/exec + '?scope=self&accessToken=' + encodeURIComponent(accessToken);
+      const url = SYNC_ENDPOINT_URL + '?scope=self&accessToken=' + encodeURIComponent(accessToken);
       const res = await fetch(url);
       const payload = await res.json();
       if (!payload.ok) throw new Error(payload.error || 'Request failed');
