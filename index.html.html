@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Medication Tracker</title>
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#4a7c59" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💊</text></svg>" />
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body style="margin:0;background:#faf9f7;">
+<div id="app"></div>
+
+<style>
+  :root {
+    --bg: #faf9f7;
+    --card: #ffffff;
+    --border: #e5e1db;
+    --text: #2b2925;
+    --muted: #8a8578;
+    --accent: #4a7c59;
+    --accent-light: #e8f3ea;
+    --danger: #b5533c;
+    --danger-light: #fbebe6;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  #app {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px 16px 60px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 22px; font-weight: 700; margin: 4px 0 2px; }
+  .subtitle { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .med-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .med-info { flex: 1; min-width: 0; }
+  .med-name { font-weight: 600; font-size: 16px; }
+  .med-meta { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .btn {
+    border: none; border-radius: 10px; padding: 10px 14px; font-size: 14px;
+    font-weight: 600; cursor: pointer; white-space: nowrap; transition: transform 0.05s ease;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-take { background: var(--accent); color: white; }
+  .btn-taken { background: var(--accent-light); color: var(--accent); }
+  .btn-undo { background: transparent; color: var(--danger); font-size: 12px; padding: 4px 6px; text-decoration: underline; }
+  .taken-time { font-size: 12px; color: var(--accent); margin-top: 2px; font-weight: 600; }
+  .add-form { display: flex; flex-direction: column; gap: 10px; }
+  .add-form input {
+    border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
+    font-size: 14px; font-family: inherit; background: var(--bg); color: var(--text);
+  }
+  .add-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row-2 { display: flex; gap: 8px; }
+  .row-2 input { flex: 1; min-width: 0; }
+  .btn-add { background: var(--text); color: white; align-self: flex-start; }
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 14px; }
+  .section-label {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted); font-weight: 700; margin: 22px 0 8px 4px;
+  }
+  .delete-x { background: transparent; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; }
+  .toggle-form-btn {
+    background: transparent; color: var(--accent); border: 1px dashed var(--border);
+    width: 100%; padding: 12px; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-size: 14px;
+  }
+  .loading, .signin-screen { text-align: center; color: var(--muted); padding: 40px 16px; font-size: 14px; }
+  .date-line { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .freq-label { font-size: 13px; font-weight: 600; color: var(--text); margin-top: 4px; }
+  .freq-options { display: flex; gap: 8px; }
+  .freq-btn {
+    flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .freq-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .day-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+  .day-chip {
+    width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .day-chip.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .g-signin-btn {
+    background: white; color: #3c4043; border: 1px solid #dadce0; border-radius: 10px;
+    padding: 12px 20px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 16px;
+  }
+  .status-line { font-size: 12px; color: var(--muted); text-align: center; margin-top: 18px; }
+  .error-box {
+    background: var(--danger-light); color: var(--danger); border-radius: 10px;
+    padding: 12px; font-size: 13px; margin: 16px 0;
+  }
+
+  /* ============================================================
+     ADMIN MODULE — styles
+     ============================================================ */
+  .admin-link-btn {
+    background: var(--text); color: white; border: none; border-radius: 10px;
+    padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+  .stat-box { background: var(--accent-light); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1.1; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .admin-table th, .admin-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  .admin-table th { color: var(--muted); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.04em; }
+  .trend-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; }
+  .trend-bar { flex: 1; background: var(--accent-light); border-radius: 3px 3px 0 0; position: relative; height: 100%; }
+  .trend-bar-fill { background: var(--accent); width: 100%; border-radius: 3px 3px 0 0; position: absolute; bottom: 0; }
+  .admin-back-btn {
+    background: transparent; color: var(--accent); border: 1px solid var(--border);
+    width: 100%; padding: 12px; border-radius: var(--radius); font-weight: 600; cursor: pointer; font-size: 14px; margin-top: 8px;
+  }
+</style>
+
+<script>
+(function() {
+  // ====== CONFIGURATION ======
+  // Replace this with the OAuth Client ID from your Google Cloud project.
+  const CLIENT_ID = '1087953047967-oi91huc3j0i0lojpsrapf6ltrti2o4ht.apps.googleusercontent.com';
+  // Only identity scopes now — no Drive scope needed. All storage
+  // (personal AND admin) goes through SYNC_ENDPOINT_URL instead,
+  // which is backed by a Google Sheet that lives in the admin's own
+  // Drive. See medtracker-appsscript.gs.
+  const AUTH_SCOPE = 'https://www.googleapis.com/auth/userinfo.email profile';
+  const ADMIN_EMAIL = 'mukunda.gogoi@gmail.com';
+  // Paste the Web App URL from your Apps Script deployment here.
+  // Looks like: https://script.google.com/macros/s/AKfycb.../exec
+  const SYNC_ENDPOINT_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+  // ============================
+
+  const root = document.getElementById('app');
+  const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  let medications = [];
+  let takenLog = {};
+  let loaded = false;
+  let showAddForm = false;
+  let newMedFrequency = 'daily';
+  let newMedDays = [];
+  let accessToken = null;
+  let signInError = null;
+  let tokenClient = null;
+  let currentUser = null;
+
+  // ADMIN MODULE — view state
+  let currentView = 'main'; // 'main' | 'admin'
+  let adminLoading = false;
+  let adminError = null;
+  let adminStats = null;
+
+  function todayKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function todayDayIndex() { return new Date().getDay(); }
+  function formatDateNice() {
+    return new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+  }
+  function formatTimeNow() {
+    return new Date().toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+  function uid() { return 'm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7); }
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.innerText = str;
+    return d.innerHTML;
+  }
+  function isScheduledToday(med) {
+    if (!med.frequency || med.frequency === 'daily') return true;
+    return (med.days || []).includes(todayDayIndex());
+  }
+  function syncEndpointConfigured() {
+    return !!SYNC_ENDPOINT_URL && SYNC_ENDPOINT_URL.indexOf('PASTE_YOUR') === -1;
+  }
+
+  // ---------- Google Sign-In ----------
+  function initGoogle() {
+    if (typeof google === 'undefined' || !google.accounts) {
+      setTimeout(initGoogle, 200);
+      return;
+    }
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: AUTH_SCOPE,
+      callback: async (resp) => {
+        if (resp.error) {
+          signInError = 'Sign-in was not completed. Please try again.';
+          render();
+          return;
+        }
+        accessToken = resp.access_token;
+        signInError = null;
+        await fetchUserInfo();
+        await loadData();
+      }
+    });
+    // Try a silent sign-in first (works if you've already granted access before)
+    tokenClient.requestAccessToken({ prompt: '' });
+    render();
+  }
+
+  function signIn() {
+    signInError = null;
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  }
+
+  function switchAccount() {
+    signInError = null;
+    accessToken = null;
+    loaded = false;
+    currentUser = null;
+    currentView = 'main';
+    render();
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
+  }
+
+  function signOut() {
+    if (accessToken && google.accounts && google.accounts.oauth2) {
+      google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    accessToken = null;
+    loaded = false;
+    currentUser = null;
+    medications = [];
+    takenLog = {};
+    currentView = 'main';
+    render();
+  }
+
+  async function fetchUserInfo() {
+    try {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: 'Bearer ' + accessToken }
+      });
+      currentUser = await res.json();
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+
+  // ---------- Storage: all reads/writes go through the Apps Script
+  // Web App, which stores everything in a Sheet in the admin's Drive ----------
+  async function loadData() {
+    if (!syncEndpointConfigured()) {
+      signInError = 'The sync endpoint isn\'t configured yet. Paste your Apps Script Web App URL into SYNC_ENDPOINT_URL in the code.';
+      loaded = true; // let the person see the app shell + the error rather than spinning forever
+      render();
+      return;
+    }
+    try {
+      const url = https://script.google.com/macros/s/AKfycbx672GyixI-sYl3asNqduddeV4QDiBJY_AeSdVxnvYEsAWOLiUC2ld7QAdTn0o1ikq0/exec + '?scope=self&accessToken=' + encodeURIComponent(accessToken);
+      const res = await fetch(url);
+      const payload = await res.json();
+      if (!payload.ok) throw new Error(payload.error || 'Request failed');
+      medications = (payload.user && payload.user.medications) || [];
+      takenLog = (payload.user && payload.user.takenLog) || {};
+      loaded = true;
+      signInError = null;
+    } catch (e) {
+      console.error(e);
+      signInError = 'Could not load your data. Check your connection and try again.';
+    }
+    render();
+  }
+
+  async function saveData() {
+    if (!currentUser || !currentUser.email || !accessToken) return;
+    if (!syncEndpointConfigured()) return;
+    try {
+      // text/plain avoids a CORS preflight that Apps Script Web Apps don't handle;
+      // the body is still valid JSON and is parsed as such server-side.
+      const res = await fetch(SYNC_ENDPOINT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ accessToken, email: currentUser.email, medications, takenLog })
+      });
+      const payload = await res.json();
+      if (!payload.ok) throw new Error(payload.error || 'Save failed');
+    } catch (e) {
+      console.error('Save failed', e);
+      signInError = 'Could not save your changes. They\'re kept on screen but may not have synced.';
+      render();
+    }
+  }
+
+  // ---------- Mutations ----------
+  async function addMedication(name, dose, time) {
+    if (!name.trim()) return;
+    const med = {
+      id: uid(),
+      name: name.trim(),
+      dose: dose.trim(),
+      time: time.trim(),
+      frequency: newMedFrequency,
+      days: newMedFrequency === 'specific' ? [...newMedDays] : []
+    };
+    medications.push(med);
+    showAddForm = false;
+    newMedFrequency = 'daily';
+    newMedDays = [];
+    render();
+    await saveData();
+  }
+
+  async function deleteMedication(id) {
+    medications = medications.filter(m => m.id !== id);
+    render();
+    await saveData();
+  }
+
+  async function markTaken(id) {
+    const key = todayKey();
+    if (!takenLog[key]) takenLog[key] = {};
+    takenLog[key][id] = formatTimeNow();
+    render();
+    await saveData();
+  }
+
+  async function undoTaken(id) {
+    const key = todayKey();
+    if (takenLog[key]) delete takenLog[key][id];
+    render();
+    await saveData();
+  }
+
+  function toggleNewMedDay(dayIndex) {
+    const i = newMedDays.indexOf(dayIndex);
+    if (i === -1) newMedDays.push(dayIndex); else newMedDays.splice(i, 1);
+    render();
+  }
+
+  function setNewMedFrequency(freq) {
+    newMedFrequency = freq;
+    render();
+  }
+
+  // ---------- Rendering ----------
+  function medRow(med) {
+    const key = todayKey();
+    const takenAt = takenLog[key] && takenLog[key][med.id];
+    const metaParts = [];
+    if (med.dose) metaParts.push(med.dose);
+    if (med.time) metaParts.push('Usually ' + med.time);
+    if (med.frequency === 'specific' && med.days && med.days.length) {
+      metaParts.push(med.days.slice().sort().map(d => DAY_NAMES[d]).join(', '));
+    }
+    const meta = metaParts.join(' · ');
+
+    return `
+      <div class="card">
+        <div class="med-row">
+          <div class="med-info">
+            <div class="med-name">${escapeHtml(med.name)}</div>
+            ${meta ? `<div class="med-meta">${escapeHtml(meta)}</div>` : ''}
+            ${takenAt ? `<div class="taken-time">✓ Taken today at ${takenAt}</div>` : ''}
+          </div>
+          ${takenAt
+            ? `<button class="btn btn-taken" disabled>Taken</button>`
+            : `<button class="btn btn-take" onclick="window.__medApp.markTaken('${med.id}')">Mark taken</button>`
+          }
+          <button class="delete-x" title="Remove medication" onclick="window.__medApp.deleteMedication('${med.id}')">✕</button>
+        </div>
+        ${takenAt ? `<div style="text-align:right;margin-top:4px;"><button class="btn-undo" onclick="window.__medApp.undoTaken('${med.id}')">Undo</button></div>` : ''}
+      </div>
+    `;
+  }
+
+  function renderSignIn() {
+    root.innerHTML = `
+      <h1>💊 Medication Tracker</h1>
+      <div class="signin-screen">
+        <p>Sign in with Google to load your medications.</p>
+        ${signInError ? `<div class="error-box">${escapeHtml(signInError)}</div>` : ''}
+        <button class="g-signin-btn" id="signin-btn">Sign in with Google</button>
+      </div>
+    `;
+    const btn = document.getElementById('signin-btn');
+    if (btn) btn.onclick = () => window.__medApp.signIn();
+  }
+
+  function render() {
+    if (!tokenClient) {
+      root.innerHTML = `<div class="loading">Starting up...</div>`;
+      return;
+    }
+    if (!accessToken || !loaded) {
+      renderSignIn();
+      return;
+    }
+
+    // ADMIN MODULE — branch to the dashboard view
+    if (currentView === 'admin') {
+      renderAdminDashboard();
+      return;
+    }
+
+    const todaysMeds = medications.filter(isScheduledToday);
+    const listHtml = todaysMeds.length
+      ? todaysMeds.map(medRow).join('')
+      : (medications.length
+          ? `<div class="empty">Nothing scheduled for today.</div>`
+          : `<div class="empty">No medications added yet.<br/>Add your first one below.</div>`);
+
+    const dayPickerHtml = DAY_NAMES.map((d, i) => `
+      <button type="button" class="day-chip ${newMedDays.includes(i) ? 'active' : ''}"
+        onclick="window.__medApp.toggleDay(${i})">${d}</button>
+    `).join('');
+
+    const addFormHtml = showAddForm ? `
+      <div class="card add-form">
+        <input id="med-name-input" type="text" placeholder="Medication name (e.g. Metformin)" />
+        <div class="row-2">
+          <input id="med-dose-input" type="text" placeholder="Dose (e.g. 500mg)" />
+          <input id="med-time-input" type="text" placeholder="Usual time (e.g. 8:00 AM)" />
+        </div>
+        <div class="freq-label">How often?</div>
+        <div class="freq-options">
+          <button type="button" class="freq-btn ${newMedFrequency === 'daily' ? 'active' : ''}" onclick="window.__medApp.setFrequency('daily')">Every day</button>
+          <button type="button" class="freq-btn ${newMedFrequency === 'specific' ? 'active' : ''}" onclick="window.__medApp.setFrequency('specific')">Specific days</button>
+        </div>
+        ${newMedFrequency === 'specific' ? `
+          <div class="freq-label">Which days of the month ?</div>
+          <div class="day-picker">${dayPickerHtml}</div>
+        ` : ''}
+        <div class="row-2" style="margin-top:6px;">
+          <button class="btn btn-add" id="save-med-btn">Add medication</button>
+          <button class="btn" style="background:transparent;color:var(--muted);" id="cancel-add-btn">Cancel</button>
+        </div>
+      </div>
+    ` : `
+      <button class="toggle-form-btn" id="show-add-btn">+ Add a medication</button>
+    `;
+
+    // ADMIN MODULE — show an "Admin Dashboard" entry point only to the admin account
+    const adminButtonHtml = isAdmin()
+      ? `<button class="admin-link-btn" id="open-admin-btn">Admin Dashboard</button>`
+      : '';
+
+    const accountBarHtml = currentUser ? `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;">
+        <div style="font-size:12px;color:var(--muted);min-width:0;">Signed in as <strong>${escapeHtml(currentUser.email || currentUser.name || '')}</strong></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+          ${adminButtonHtml}
+          <button class="btn-undo" style="color:var(--accent);" id="switch-account-btn">Switch account</button>
+          <button class="btn-undo" id="sign-out-btn">Sign out</button>
+        </div>
+      </div>
+    ` : '';
+
+    root.innerHTML = `
+      <h1>💊 Medication Tracker</h1>
+      ${accountBarHtml}
+      <div class="date-line">${formatDateNice()}</div>
+      <div class="subtitle">Tap "Mark taken" once you've taken a dose — it stays marked for today so you don't accidentally take it twice.</div>
+      ${signInError ? `<div class="error-box">${escapeHtml(signInError)}</div>` : ''}
+      <div class="section-label">Today</div>
+      ${listHtml}
+      <div class="section-label">Manage</div>
+      ${addFormHtml}
+      <div class="status-line">Synced</div>
+    `;
+
+    if (showAddForm) {
+      document.getElementById('save-med-btn').onclick = () => {
+        const name = document.getElementById('med-name-input').value;
+        const dose = document.getElementById('med-dose-input').value;
+        const time = document.getElementById('med-time-input').value;
+        addMedication(name, dose, time);
+      };
+      document.getElementById('cancel-add-btn').onclick = () => {
+        showAddForm = false;
+        newMedFrequency = 'daily';
+        newMedDays = [];
+        render();
+      };
+      document.getElementById('med-name-input').focus();
+    } else {
+      document.getElementById('show-add-btn').onclick = () => {
+        showAddForm = true;
+        render();
+      };
+    }
+
+    const switchBtn = document.getElementById('switch-account-btn');
+    if (switchBtn) switchBtn.onclick = () => window.__medApp.switchAccount();
+    const signOutBtn = document.getElementById('sign-out-btn');
+    if (signOutBtn) signOutBtn.onclick = () => window.__medApp.signOut();
+    const adminBtn = document.getElementById('open-admin-btn');
+    if (adminBtn) adminBtn.onclick = () => window.__medApp.openAdminDashboard();
+  }
+
+  /* ================================================================
+     ADMIN MODULE START
+     ----------------------------------------------------------------
+     Everything below is scoped to the admin dashboard. It is gated
+     to ADMIN_EMAIL and reads data via the same Apps Script Web App
+     that now stores everyone's medications/takenLog (see
+     medtracker-appsscript.gs) — a Google Sheet that lives in the
+     admin's own Drive.
+
+     No one but the admin has any Drive-level access to that Sheet;
+     every other user can only reach it through the endpoint, and
+     the endpoint verifies each caller's Google access token itself
+     before reading or writing anything — a user can only ever
+     touch their own row (scope=self), and only ADMIN_EMAIL is
+     allowed to request scope=all.
+     ================================================================ */
+
+  function isAdmin() {
+    return !!(currentUser && currentUser.email &&
+      currentUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase());
+  }
+
+  function openAdminDashboard() {
+    if (!isAdmin()) return;
+    currentView = 'admin';
+    adminStats = null;
+    adminError = null;
+    adminLoading = true;
+    render();
+    loadAdminStats();
+  }
+
+  function closeAdminDashboard() {
+    currentView = 'main';
+    render();
+  }
+
+  function dateKeyForDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function isScheduledOnDate(med, d) {
+    if (!med.frequency || med.frequency === 'daily') return true;
+    return (med.days || []).includes(d.getDay());
+  }
+
+  // Doses/week implied by a medication's recurring schedule
+  function weeklyDoseCount(med) {
+    if (!med.frequency || med.frequency === 'daily') return 7;
+    return (med.days || []).length;
+  }
+
+  async function loadAdminStats() {
+    if (!syncEndpointConfigured()) {
+      adminLoading = false;
+      adminError = 'The sync endpoint isn\'t configured yet. Paste your Apps Script Web App URL into SYNC_ENDPOINT_URL in the code.';
+      render();
+      return;
+    }
+    if (!accessToken) {
+      adminLoading = false;
+      adminError = 'Not signed in.';
+      render();
+      return;
+    }
+
+    try {
+      const url = SYNC_ENDPOINT_URL + '?scope=all&accessToken=' + encodeURIComponent(accessToken);
+      const res = await fetch(url, { method: 'GET' });
+      const payload = await res.json();
+      if (!payload.ok) {
+        throw new Error(payload.error || 'Request failed');
+      }
+      const users = payload.users || [];
+
+      const uniqueMedSet = new Set();
+      const weeklyQtyMap = {};
+      const mostUsedMap = {};
+      let takenTotal30 = 0, scheduledTotal30 = 0;
+      const dailyTaken = {};
+      const dailySched = {};
+      const today = new Date();
+
+      const days14 = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(today); d.setDate(today.getDate() - i);
+        days14.push(dateKeyForDate(d));
+      }
+      days14.forEach(k => { dailyTaken[k] = 0; dailySched[k] = 0; });
+
+      for (const u of users) {
+        const meds = u.medications || [];
+        const log = u.takenLog || {};
+
+        meds.forEach(m => {
+          const name = (m.name || '').trim();
+          if (name) uniqueMedSet.add(name);
+          weeklyQtyMap[name] = (weeklyQtyMap[name] || 0) + weeklyDoseCount(m);
+        });
+
+        for (let i = 29; i >= 0; i--) {
+          const d = new Date(today); d.setDate(today.getDate() - i);
+          const dk = dateKeyForDate(d);
+          meds.forEach(m => {
+            if (!isScheduledOnDate(m, d)) return;
+            scheduledTotal30++;
+            if (dailySched.hasOwnProperty(dk)) dailySched[dk]++;
+            const takenAt = log[dk] && log[dk][m.id];
+            if (takenAt) {
+              takenTotal30++;
+              if (dailyTaken.hasOwnProperty(dk)) dailyTaken[dk]++;
+              const name = (m.name || '').trim();
+              if (name) mostUsedMap[name] = (mostUsedMap[name] || 0) + 1;
+            }
+          });
+        }
+      }
+
+      const uniqueMedicines = Array.from(uniqueMedSet).sort((a, b) => a.localeCompare(b));
+      const weeklyQuantities = Object.keys(weeklyQtyMap)
+        .sort((a, b) => a.localeCompare(b))
+        .map(name => ({ name, qty: weeklyQtyMap[name] }));
+      const mostUsed = Object.keys(mostUsedMap)
+        .map(name => ({ name, count: mostUsedMap[name] }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+      const trend = days14.map(k => ({
+        date: k,
+        pct: dailySched[k] > 0 ? Math.round((dailyTaken[k] / dailySched[k]) * 100) : null
+      }));
+      const compliancePct = scheduledTotal30 > 0 ? Math.round((takenTotal30 / scheduledTotal30) * 100) : null;
+
+      adminStats = { totalUsers: users.length, uniqueMedicines, weeklyQuantities, compliancePct, trend, mostUsed };
+      adminLoading = false;
+      adminError = null;
+    } catch (e) {
+      console.error(e);
+      adminLoading = false;
+      adminError = 'Could not load admin data. Please try again.';
+    }
+    render();
+  }
+
+  function renderAdminDashboard() {
+    if (adminLoading) {
+      root.innerHTML = `<h1>💊 Admin Dashboard</h1><div class="loading">Loading data across all users…</div>`;
+      return;
+    }
+    if (adminError) {
+      root.innerHTML = `
+        <h1>💊 Admin Dashboard</h1>
+        <div class="error-box">${escapeHtml(adminError)}</div>
+        <button class="admin-back-btn" id="admin-back-btn">← Back to my medications</button>
+      `;
+      document.getElementById('admin-back-btn').onclick = closeAdminDashboard;
+      return;
+    }
+
+    const s = adminStats;
+
+    const uniqueMedsHtml = s.uniqueMedicines.length
+      ? `<ul style="margin:0;padding-left:20px;font-size:14px;">${s.uniqueMedicines.map(m => `<li>${escapeHtml(m)}</li>`).join('')}</ul>`
+      : `<div class="empty">No medicines recorded yet.</div>`;
+
+    const qtyRowsHtml = s.weeklyQuantities.length
+      ? s.weeklyQuantities.map(q => `<tr><td>${escapeHtml(q.name)}</td><td>${q.qty}</td><td>${q.qty}</td></tr>`).join('')
+      : `<tr><td colspan="3" style="color:var(--muted);">No scheduled medications yet.</td></tr>`;
+
+    const mostUsedHtml = s.mostUsed.length
+      ? `<ol style="margin:0;padding-left:20px;font-size:14px;">${s.mostUsed.map(m => `<li>${escapeHtml(m.name)} — ${m.count} doses taken (last 30 days)</li>`).join('')}</ol>`
+      : `<div class="empty">No doses logged yet.</div>`;
+
+    const trendBarsHtml = s.trend.map(t => {
+      const height = t.pct === null ? 0 : t.pct;
+      const label = t.date.slice(5);
+      return `
+        <div class="trend-bar" title="${label}: ${t.pct === null ? 'no data' : t.pct + '%'}">
+          <div class="trend-bar-fill" style="height:${height}%;"></div>
+        </div>
+      `;
+    }).join('');
+
+    root.innerHTML = `
+      <h1>💊 Admin Dashboard</h1>
+      <div class="subtitle">Aggregated across everyone who has signed in and synced. Updates as users mark medications taken.</div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-num">${s.totalUsers}</div>
+          <div class="stat-label">Total users</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num">${s.compliancePct === null ? '—' : s.compliancePct + '%'}</div>
+          <div class="stat-label">Compliance (30 days)</div>
+        </div>
+      </div>
+
+      <div class="section-label">Trend — daily compliance, last 14 days</div>
+      <div class="card">
+        <div class="trend-chart">${trendBarsHtml}</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px;">
+          <span>${s.trend[0] ? s.trend[0].date.slice(5) : ''}</span>
+          <span>${s.trend[s.trend.length - 1] ? s.trend[s.trend.length - 1].date.slice(5) : ''}</span>
+        </div>
+      </div>
+
+      <div class="section-label">Most used medicines (last 30 days)</div>
+      <div class="card">${mostUsedHtml}</div>
+
+      <div class="section-label">Unique medicines tracked</div>
+      <div class="card">${uniqueMedsHtml}</div>
+
+      <div class="section-label">Medicine quantity needed per week</div>
+      <div class="card">
+        <table class="admin-table">
+          <thead><tr><th>Medicine</th><th>This week</th><th>Next week</th></tr></thead>
+          <tbody>${qtyRowsHtml}</tbody>
+        </table>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+          Assumes each medication's current schedule (daily or specific days) stays the same next week. "Quantity" means doses, not pill count — dose sizes (mg) aren't standardized across users.
+        </div>
+      </div>
+
+      <button class="admin-back-btn" id="admin-back-btn">← Back to my medications</button>
+    `;
+    document.getElementById('admin-back-btn').onclick = closeAdminDashboard;
+  }
+
+  /* ================================================================
+     ADMIN MODULE END
+     ================================================================ */
+
+  window.__medApp = {
+    markTaken, undoTaken, deleteMedication, signIn, switchAccount, signOut,
+    toggleDay: toggleNewMedDay, setFrequency: setNewMedFrequency,
+    openAdminDashboard, closeAdminDashboard
+  };
+
+  initGoogle();
+})();
+</script>
+</body>
+</html>
